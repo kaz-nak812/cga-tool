@@ -158,6 +158,45 @@
         .radio-group .radio-btn:active {
             transform: scale(0.97);
         }
+        .radio-group input[type="radio"][value="unknown"]:checked + .radio-btn {
+            background: #78909c;
+            border-color: #78909c;
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(120,144,156,0.35);
+        }
+
+        .mol-warn-card-header {
+            background: #fff8e1;
+            color: #bf360c;
+            border-bottom: 1px solid #ffe0b2;
+        }
+        .mol-warn-item {
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid;
+        }
+        .mol-warn-item:last-child { margin-bottom: 0; }
+        .mol-warn-item.critical { background: #ffebee; border-left-color: #e53935; }
+        .mol-warn-item.warning  { background: #fff8e1; border-left-color: #fb8c00; }
+        .mol-warn-item.info     { background: #e3f2fd; border-left-color: #1e88e5; }
+        .mol-warn-item h5 { font-size: 0.83rem; font-weight: 700; margin-bottom: 3px; }
+        .mol-warn-item.critical h5 { color: #b71c1c; }
+        .mol-warn-item.warning  h5 { color: #e65100; }
+        .mol-warn-item.info     h5 { color: #1565c0; }
+        .mol-warn-item p { font-size: 0.82rem; line-height: 1.55; margin-bottom: 2px; }
+        .mol-warn-item .alt { font-size: 0.78rem; margin-top: 4px; font-style: italic; opacity: 0.85; }
+        .provisional-badge {
+            display: inline-block;
+            background: #ff8f00;
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 1px 8px;
+            border-radius: 12px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
 
         .btn-assess {
             width: 100%;
@@ -480,7 +519,7 @@
                 <div class="radio-group">
                     <label><input type="radio" name="pole" value="mutated"><span class="radio-btn">変異あり (Mut)</span></label>
                     <label><input type="radio" name="pole" value="wildtype"><span class="radio-btn">野生型 (WT)</span></label>
-                    <label><input type="radio" name="pole" value="unknown"><span class="radio-btn">未検査</span></label>
+                    <label><input type="radio" name="pole" value="unknown" checked><span class="radio-btn">未検査</span></label>
                 </div>
             </div>
             <div class="form-group">
@@ -488,7 +527,7 @@
                 <div class="radio-group">
                     <label><input type="radio" name="mmr" value="dMMR"><span class="radio-btn">dMMR/MSI-H</span></label>
                     <label><input type="radio" name="mmr" value="pMMR"><span class="radio-btn">pMMR/MSS</span></label>
-                    <label><input type="radio" name="mmr" value="unknown"><span class="radio-btn">未検査</span></label>
+                    <label><input type="radio" name="mmr" value="unknown" checked><span class="radio-btn">未検査</span></label>
                 </div>
             </div>
             <div class="form-group">
@@ -496,7 +535,7 @@
                 <div class="radio-group">
                     <label><input type="radio" name="p53" value="abnormal"><span class="radio-btn">異常 (Abn)</span></label>
                     <label><input type="radio" name="p53" value="wildtype"><span class="radio-btn">野生型 (WT)</span></label>
-                    <label><input type="radio" name="p53" value="unknown"><span class="radio-btn">未検査</span></label>
+                    <label><input type="radio" name="p53" value="unknown" checked><span class="radio-btn">未検査</span></label>
                 </div>
             </div>
             <div class="form-group">
@@ -504,7 +543,7 @@
                 <div class="radio-group">
                     <label><input type="radio" name="er" value="positive"><span class="radio-btn">陽性</span></label>
                     <label><input type="radio" name="er" value="negative"><span class="radio-btn">陰性</span></label>
-                    <label><input type="radio" name="er" value="unknown"><span class="radio-btn">未検査</span></label>
+                    <label><input type="radio" name="er" value="unknown" checked><span class="radio-btn">未検査</span></label>
                 </div>
             </div>
         </div>
@@ -516,6 +555,12 @@
 
     <!-- 結果セクション -->
     <div id="result-section">
+        <!-- 分子分類 未確定 警告 -->
+        <div class="card" id="mol-warn-card" style="display:none;">
+            <div class="card-header mol-warn-card-header">⚠️ 分子分類 未確定</div>
+            <div class="card-body" id="mol-warn-body"></div>
+        </div>
+
         <!-- 入力サマリー -->
         <div class="card" id="summary-card">
             <div class="card-header">入力サマリー</div>
@@ -618,7 +663,72 @@ function stageNum(s) {
     return map[s] || 0;
 }
 
-function classifyRisk(data) {
+function getMolecularWarnings(data) {
+    const { pole, mmr, p53 } = data;
+    const warnings = [];
+
+    if (!p53 || p53 === 'unknown') {
+        warnings.push({
+            level: 'critical',
+            title: 'p53 免疫染色 未実施',
+            body: 'p53異常 (Abn) の場合、臨床病理学的因子に関わらず高リスクに分類されます。現在の分類は暫定的です。p53免疫染色を最優先で実施してください。',
+            alt: '→ p53異常が判明した場合: 高リスク に変更'
+        });
+    }
+
+    if (!pole || pole === 'unknown') {
+        warnings.push({
+            level: 'warning',
+            title: 'POLE 変異検査 未実施',
+            body: 'POLEmut の場合、Stage I-II では低リスクとなり補助療法が不要となる可能性があります (PORTEC-4a支持)。過剰治療回避のため検査を検討してください。',
+            alt: '→ POLEmut が判明した場合: 低リスク に変更 (Stage I-II)'
+        });
+    }
+
+    if (!mmr || mmr === 'unknown') {
+        warnings.push({
+            level: 'info',
+            title: 'MMR/MSI 検査 未実施',
+            body: 'dMMR/MSI-H の場合、進行・再発時の免疫チェックポイント阻害薬の適応が生じます。Lynch症候群スクリーニングとしても重要です。',
+            alt: null
+        });
+    }
+
+    return warnings;
+}
+
+function buildMolecularWarnings(warnings, riskResult) {
+    const card = document.getElementById('mol-warn-card');
+    const body = document.getElementById('mol-warn-body');
+
+    if (warnings.length === 0) {
+        card.style.display = 'none';
+        return;
+    }
+
+    card.style.display = 'block';
+    let html = '';
+
+    const hasCritical = warnings.some(w => w.level === 'critical');
+    if (hasCritical && riskResult.group !== 'high' && riskResult.group !== 'advanced') {
+        html += `<div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+            <strong style="color:#b71c1c;font-size:0.85rem;">⚠ 現在の分類は暫定的です</strong>
+            <p style="font-size:0.8rem;margin-top:3px;color:#444;">p53検査が未実施のため、高リスクの可能性が除外できていません。分子検査完了後に再度判定してください。</p>
+        </div>`;
+    }
+
+    warnings.forEach(w => {
+        html += `<div class="mol-warn-item ${w.level}">
+            <h5>${w.title}</h5>
+            <p>${w.body}</p>
+            ${w.alt ? `<p class="alt">${w.alt}</p>` : ''}
+        </div>`;
+    });
+
+    body.innerHTML = html;
+}
+
+function _classifyRisk(data) {
     const { stage, histology, grade, lvsi, pole, p53, mmr } = data;
     const sn = stageNum(stage);
 
@@ -694,6 +804,15 @@ function classifyRisk(data) {
 
     return { group: 'intermediate', label: '中リスク', cssClass: 'risk-int',
         note: '情報不足のため暫定的に中リスクとしています。全ての項目を入力してください。' };
+}
+
+function classifyRisk(data) {
+    const result = _classifyRisk(data);
+    if ((!data.p53 || data.p53 === 'unknown') &&
+        result.group !== 'high' && result.group !== 'advanced') {
+        result.provisional = true;
+    }
+    return result;
 }
 
 function getESMORecommendation(riskResult, data) {
@@ -1218,6 +1337,9 @@ function assess() {
     buildSummary(data);
     buildRiskResult(riskResult);
 
+    const molWarnings = getMolecularWarnings(data);
+    buildMolecularWarnings(molWarnings, riskResult);
+
     document.getElementById('esmo-content').innerHTML = getESMORecommendation(riskResult, data);
     document.getElementById('nccn-content').innerHTML = getNCCNRecommendation(riskResult, data);
     document.getElementById('rt-detail-body').innerHTML = getRTDetail(riskResult, data);
@@ -1268,15 +1390,19 @@ function buildSummary(data) {
 
     if (data.pole === 'mutated') html += `<span class="mol-tag pole-mut">POLE Mut</span>`;
     else if (data.pole === 'wildtype') html += `<span class="mol-tag pole-wt">POLE WT</span>`;
+    else html += `<span class="mol-tag" style="background:#eceff1;color:#607d8b;">POLE 未検査</span>`;
 
     if (data.mmr === 'dMMR') html += `<span class="mol-tag mmr-d">dMMR/MSI-H</span>`;
     else if (data.mmr === 'pMMR') html += `<span class="mol-tag mmr-p">pMMR/MSS</span>`;
+    else html += `<span class="mol-tag" style="background:#eceff1;color:#607d8b;">MMR 未検査</span>`;
 
     if (data.p53 === 'abnormal') html += `<span class="mol-tag p53-abn">p53 Abn</span>`;
     else if (data.p53 === 'wildtype') html += `<span class="mol-tag p53-wt">p53 WT</span>`;
+    else html += `<span class="mol-tag" style="background:#ffcdd2;color:#b71c1c;">p53 未検査 ⚠</span>`;
 
     if (data.er === 'positive') html += `<span class="mol-tag er-pos">ER+</span>`;
     else if (data.er === 'negative') html += `<span class="mol-tag er-neg">ER-</span>`;
+    else html += `<span class="mol-tag" style="background:#eceff1;color:#607d8b;">ER 未検査</span>`;
 
     html += `</div>`;
     body.innerHTML = html;
@@ -1287,7 +1413,12 @@ function buildRiskResult(riskResult) {
     card.className = `result-card ${riskResult.cssClass}`;
 
     document.getElementById('risk-badge').textContent = riskResult.label;
-    document.getElementById('risk-label').textContent = 'ESMO/ESTRO/ESP 分子統合リスク分類';
+    const labelEl = document.getElementById('risk-label');
+    if (riskResult.provisional) {
+        labelEl.innerHTML = 'ESMO/ESTRO/ESP 分子統合リスク分類 <span class="provisional-badge">暫定</span>';
+    } else {
+        labelEl.textContent = 'ESMO/ESTRO/ESP 分子統合リスク分類';
+    }
 
     let bodyHtml = `<h4>リスクグループ</h4>
         <p><strong>${riskResult.label}</strong>`;
@@ -1335,6 +1466,10 @@ function resetForm() {
     document.getElementById('histology').value = '';
     document.getElementById('stage').value = '';
     document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+    ['pole', 'mmr', 'p53', 'er'].forEach(name => {
+        const el = document.querySelector(`input[name="${name}"][value="unknown"]`);
+        if (el) el.checked = true;
+    });
     document.getElementById('grade-group').classList.remove('hidden');
     document.getElementById('result-section').classList.remove('show');
     window.scrollTo({ top: 0, behavior: 'smooth' });
